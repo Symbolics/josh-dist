@@ -670,7 +670,11 @@
 	      :documentation "Systems to search through")
      (conjunction '(member and or)
 		  :default 'and
-		  :documentation "AND or OR of the strings"))
+		  :documentation "AND or OR of the strings")
+     (include-components 'boolean
+			 :default t
+			 :documentation "Yes or No"
+			 ))
   (with-frame-standard-output (stream)
     (when files
       (dolist (pathname files)
@@ -691,7 +695,7 @@
 	    system #'(lambda (module)
 		       (let ((pathname (defsys:source-pathname module)))
 			 (search-system-file pathname)))
-	    :include-components nil
+	    :include-components include-components
 	    :silent t)
 	  #-(or Genera Allegro)
 	  (clim-defsystem::system-map-files system #'search-system-file

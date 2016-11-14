@@ -778,9 +778,13 @@
 	 preds-to-zap)
     (when (> pred-count 1)
       (format *query-io* "~&There are ~d predications in the support:" pred-count))
-    (dolist (p preds)
+    (dolist (p non-premises)
       (when (yes-or-no-p "~%Unjustify ~a? " p)
 	(push p preds-to-zap)))
+    (unless preds-to-zap
+      (dolist (p premises)
+	(when (yes-or-no-p "~%Unjustify ~a? " p)
+	  (push p preds-to-zap))))
     (when (and (> pred-count 1)
 	       preds-to-zap)
       (unless 
