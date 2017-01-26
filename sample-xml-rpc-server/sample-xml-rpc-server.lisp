@@ -262,28 +262,29 @@
      :pathname *radio-icon-pathname*
      :format :pixmap-3))
   (let ((graft (clim:find-graft)))
-    (multiple-value-bind (width height) (clim:rectangle-size (clim:sheet-region graft))
+    (multiple-value-bind (sheet-width sheet-height) (clim:rectangle-size (clim:sheet-region graft))
+      (declare (ignore sheet-width))
       (let ((window-width (+ 30 (* 2 (clim:pixmap-width *radio-icon*))))
-	    (window-height (+ 40 (* 2 (clim:pixmap-height *radio-icon*)))))
-	(setq *radio-window* 
-	  (clim:open-window-stream 
-	   :label "Radio Controls"
-	   :left (- width window-width 30)
-	   :top (- height window-height 30)
-	   :width window-width
-	   :height window-height
-	   ;; Note that :Invisible is different than :off
-	   ;; and is necessary to avoid having a black box for the cursor
-	   :initial-cursor-visibility :invisible
-	   ;; :input-buffer (clim:stream-input-buffer *standard-input*)
-	   )
-	  *radio-frame* (clim:pane-frame *radio-window*))))
+            (window-height (+ 40 (* 2 (clim:pixmap-height *radio-icon*)))))
+        (setq *radio-window* 
+          (clim:open-window-stream 
+           :label "Radio Controls"
+           :left window-width
+           :top (- sheet-height window-height 30)
+           :width window-width
+           :height window-height
+           ;; Note that :Invisible is different than :off
+           ;; and is necessary to avoid having a black box for the cursor
+           :initial-cursor-visibility :invisible
+           ;; :input-buffer (clim:stream-input-buffer *standard-input*)
+           )
+          *radio-frame* (clim:pane-frame *radio-window*))))
     (mp:process-run-function "radio-commands"
       #'(lambda (frame)
-	  ;; This is necessary before you can draw apparently
-	  (clim:window-expose *radio-window*)
-	  (graphical-radio-commands *radio-icon* *radio-window*)
-	  (clim:run-frame-top-level frame))
+          ;; This is necessary before you can draw apparently
+          (clim:window-expose *radio-window*)
+          (graphical-radio-commands *radio-icon* *radio-window*)
+          (clim:run-frame-top-level frame))
       *radio-frame*)
     ))
 

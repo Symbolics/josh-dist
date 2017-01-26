@@ -1069,13 +1069,13 @@
   (declare (special *root*))
   (with-slots (typical-instance-of-type? type) self
     ;; how to print an object with the ugly-printer
-   (let ((name (if (and (slot-boundp self 'type) type) (object-type-name type) (type-of self))))
-    (if typical-instance-of-type?
-	(format stream "#<TYPICAL-~a>" name)
-	(let ((path (path-name self)))
-	  (when (and (null path) (eql self *root*))
-	    (setq path '(*root*)))
-	  (format stream "#<OBJECT ~a>" (or path '(unnamed))))))))
+    (let ((name (if (and (slot-boundp self 'type) type) (object-type-name type) (type-of self))))
+      (if typical-instance-of-type?
+          (format stream "#<TYPICAL-~a>" name)
+        (let ((path (path-name self)))
+          (when (and (null path) (eql self *root*))
+            (setq path '(*root*)))
+          (format stream "#<OBJECT ~a>" (or path '(unnamed))))))))
 
 ;;; apparently there is no need for error checking the case of running out of superparts
 
@@ -1228,108 +1228,108 @@
   (cond 
    ((and key-p init-form-present set-valued?)
     `(if ,key-p
-	 (loop for value in ,key-variable
-	     do (tell `[,',predicate (,self ,',slot-name) value]))
+         (loop for value in ,key-variable
+             do (tell `[,',predicate (,self ,',slot-name) ,value]))
        (loop for value in ,init-form
-	   do (tell `[,',predicate (,self ,',slot-name) value]))))
+           do (tell `[,',predicate (,self ,',slot-name) ,value]))))
    ((and key-p init-form-present)
     `(if ,key-p
-	 (tell `[,',predicate (,self ,',slot-name) ,,key-variable])
+         (tell `[,',predicate (,self ,',slot-name) ,,key-variable])
        (tell `[,',predicate (,self ,',slot-name) ,,init-form])))
    ((and key-p set-valued?)
     `(when ,key-p
        (loop for value in ,key-variable
-	   do (tell `[,',predicate (,self ,',slot-name) value]))))
+           do (tell `[,',predicate (,self ,',slot-name) ,value]))))
    (key-p
     `(when ,key-p
        (tell `[,',predicate (,self ,',slot-name) ,,key-variable])))
    ((and init-form-present set-valued?)
     `(loop for value in ,init-form
-	 do (tell `[,',predicate (,self ,',slot-name) value])))
+         do (tell `[,',predicate (,self ,',slot-name) ,value])))
    (init-form-present
     `(tell `[,',predicate (,self ,',slot-name) ,,init-form]))))
 
 (def-defining-form define-object-type
-   :definer
-   ((name &key slots parts equalities initializations included-object-types
-	  other-instance-variables other-flavors)
-    (multiple-value-bind (slot-names slot-options)
-	(loop for s-d in slots
-	      if (symbolp s-d)
-		collect s-d into slot-names
-		and collect nil into slot-options
-	      else collect (car s-d) into slot-names
+    :definer
+  ((name &key slots parts equalities initializations included-object-types
+         other-instance-variables other-flavors)
+   (multiple-value-bind (slot-names slot-options)
+       (loop for s-d in slots
+           if (symbolp s-d)
+           collect s-d into slot-names
+           and collect nil into slot-options
+           else collect (car s-d) into slot-names
 		   and collect (cdr s-d) into slot-options
-	      finally (return (values slot-names slot-options)))
-      (let ((initialization-tells nil)
-	    (slot-keys nil))
-	(loop for init-form-present = nil 
-	    for slot-key-variable = nil
-	    for slot-key-p = nil
-	    for init-form = nil
-	    for slot-name in slot-names
-	    for slot-options in slot-options
-	    for tms? = (getf slot-options :truth-maintenance)
-	    for predication-name = (if tms? (if (eql tms? t) 'ltms:value-of tms?) 'value-of)
-	    for set-valued? = (getf slot-options :set-valued)
-	    do (loop for (indicator value) on slot-options by #'cddr
-		   when (eql indicator :initarg)
-		   do (setq slot-key-p (intern (string-upcase (concatenate 'string (string value) "-p")))
-			    slot-key-variable (intern (string value)))
-		      (push (list slot-key-variable nil slot-key-p) slot-keys)			    
-		   when (eql indicator :initform)
-		   do (setq init-form-present t init-form value))
-	    when (or init-form-present slot-key-p)
-	    do (push (build-init-tell predication-name slot-name init-form-present init-form
-				      slot-key-variable slot-key-p set-valued?) 
-		     initialization-tells))
-      `(progn
-	 (let ((old-type-object (object-type-named ',name)))
-	   (when old-type-object
-	     (clean-up-for-redefinition old-type-object)))
-	 (defclass ,name
-		 (,@other-flavors ,@included-object-types basic-object)
-		 (,@slot-names ,@other-instance-variables))
-	 ,@(loop for slot-name in slot-names
-		 collect `(defmethod ,slot-name ((self ,name) &optional (value t))
-			    (with-slots (,slot-name) self
-			      (if value
-				  (slot-current-value ,slot-name)
-				  ,slot-name))))
-	 ,@(when slot-names
-	     `((defmethod basic-object-prototype-builder progn ((self ,name))
-		 (with-slots ,slot-names self
-		   ,@(loop for slot-name in slot-names 
-			   collect `(setq ,slot-name 
-					  (make-prototype-slot ',slot-name self)))))
-	       (defmethod basic-object-body-builder progn ((self ,name))
-		 (with-slots ,slot-names self
-		   ,@(loop for slot-name in slot-names
-			   for his-slot-options in slot-options
-			   for slot-type-name = (decode-slot-options-to-slot-type-constructor his-slot-options)
-			   collect `(setq ,slot-name (make-instance ',slot-type-name :name ',slot-name :my-object self)))))))
-	 ,@(when parts
-	     `((defmethod basic-object-substructure-builder progn ((self ,name))
-		 ,@(loop for (role-name type) in parts 
-                         if (symbolp type)
-			 collect `(make-instance ',type :role-name ',role-name :superpart-object self)
-		       else collect `(make-instance ,type :role-name ',role-name :superpart-object self)))))
-	 ;; even if there are no init's we need to do this in order to override
-	 ;; an existing initializer from a previous definition of the type
-	 (defmethod basic-object-initializer :after ((self ,name) &key ,@slot-keys)
-	   ,@initialization-tells
-	   ,@initializations
-	   ,@(when equalities
-	       `((impose-equalities self ',equalities))))
-	 (make-instance 'object-type
+           finally (return (values slot-names slot-options)))
+     (let ((initialization-tells nil)
+           (slot-keys nil))
+       (loop for init-form-present = nil 
+           for slot-key-variable = nil
+           for slot-key-p = nil
+           for init-form = nil
+           for slot-name in slot-names
+           for slot-options in slot-options
+           for tms? = (getf slot-options :truth-maintenance)
+           for predication-name = (if tms? (if (eql tms? t) 'ltms:value-of tms?) 'value-of)
+           for set-valued? = (getf slot-options :set-valued)
+           do (loop for (indicator value) on slot-options by #'cddr
+                  when (eql indicator :initarg)
+                  do (setq slot-key-p (intern (string-upcase (concatenate 'string (string value) "-p")))
+                           slot-key-variable (intern (string value)))
+                     (push (list slot-key-variable nil slot-key-p) slot-keys)			    
+                  when (eql indicator :initform)
+                  do (setq init-form-present t init-form value))
+           when (or init-form-present slot-key-p)
+           do (push (build-init-tell predication-name slot-name init-form-present init-form
+                                     slot-key-variable slot-key-p set-valued?) 
+                    initialization-tells))
+       `(progn
+          (let ((old-type-object (object-type-named ',name)))
+            (when old-type-object
+              (clean-up-for-redefinition old-type-object)))
+          (defclass ,name
+              (,@other-flavors ,@included-object-types basic-object)
+            (,@slot-names ,@other-instance-variables))
+          ,@(loop for slot-name in slot-names
+                collect `(defmethod ,slot-name ((self ,name) &optional (value t))
+                           (with-slots (,slot-name) self
+                             (if value
+                                 (slot-current-value ,slot-name)
+                               ,slot-name))))
+          ,@(when slot-names
+              `((defmethod basic-object-prototype-builder progn ((self ,name))
+                  (with-slots ,slot-names self
+                    ,@(loop for slot-name in slot-names 
+                          collect `(setq ,slot-name 
+                                     (make-prototype-slot ',slot-name self)))))
+                (defmethod basic-object-body-builder progn ((self ,name))
+                  (with-slots ,slot-names self
+                    ,@(loop for slot-name in slot-names
+                          for his-slot-options in slot-options
+                          for slot-type-name = (decode-slot-options-to-slot-type-constructor his-slot-options)
+                          collect `(setq ,slot-name (make-instance ',slot-type-name :name ',slot-name :my-object self)))))))
+          ,@(when parts
+              `((defmethod basic-object-substructure-builder progn ((self ,name))
+                  ,@(loop for (role-name type) in parts 
+                        if (symbolp type)
+                        collect `(make-instance ',type :role-name ',role-name :superpart-object self)
+                        else collect `(make-instance ,type :role-name ',role-name :superpart-object self)))))
+          ;; even if there are no init's we need to do this in order to override
+          ;; an existing initializer from a previous definition of the type
+          (defmethod basic-object-initializer :after ((self ,name) &key ,@slot-keys)
+            ,@initialization-tells
+            ,@initializations
+            ,@(when equalities
+                `((impose-equalities self ',equalities))))
+          (make-instance 'object-type
 			:supertypes (loop for name in ',included-object-types
-					  collect (object-type-named name))
+                            collect (object-type-named name))
 			:name ',name
 			:part-names ',parts
 			:slot-names ',slot-names)))))
-   :killer undefine-object-type
-   :type-name "Object Type"
-   )
+  :killer undefine-object-type
+  :type-name "Object Type"
+  )
 
 ;;; I think that this is handling the condition case in Ansi Common Lisp way
 (defmethod impose-equalities ((self basic-object) equality-list)
